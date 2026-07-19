@@ -1,0 +1,11 @@
+{
+  "scid_example.png": {
+    "punya_de": true,
+    "state": {
+      "battle_count": 0,
+      "upgrade_count": 0,
+      "cycle": 0,
+      "last_update": "2026-01-01 00:00:00"
+    }
+  }
+}

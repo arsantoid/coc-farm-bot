@@ -1,0 +1,26 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual Environment
+env/
+venv/
+.venv/
+
+# Log & Debug (isi pribadi)
+debug/
+bot_log.txt
+upgrade_test_log
+
+# Config & Data Pribadi (JANGAN PERNAH DI-UPLOAD!)
+account_config.json
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# File sementara Windows
+Thumbs.db
+desktop.ini
