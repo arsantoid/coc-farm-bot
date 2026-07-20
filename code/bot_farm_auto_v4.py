@@ -33,21 +33,7 @@ logger = logging.getLogger(__name__)
 # ║              DAFTAR AKUN                                    ║
 # ╚══════════════════════════════════════════════════════════════╝
 DAFTAR_AKUN = [
-    ("scid_selimut.png",   "Selimut"),        # Index 0
-    ("scid_ayam.png",      "Ayam"),           # Index 1
-    ("scid_moss.png",      "MossyBoss"),      # Index 2
-    ("scid_moss1.png",     "MossyMinion 1"),  # Index 3
-    ("scid_moss2.png",     "MossyMinion 2"),  # Index 4
-    ("scid_moss3.png",     "MossyMinion 3"),  # Index 5
-    ("scid_moss4.png",     "MossyMinion 4"),  # Index 6
-    ("scid_moss5.png",     "MossyMinion 5"),  # Index 7
-    ("scid_moss6.png",     "MossyMinion 6"),  # Index 8
-    ("scid_moss7.png",     "MossyMinion 7"),  # Index 9
-    ("scid_moss8.png",     "MossyMinion 8"),  # Index 10
-    ("scid_moss9.png",     "MossyMinion 9"),  # Index 11
-    ("scid_moss10.png",    "MossyMinion 10"), # Index 12
-    ("scid_moss11.png",    "MossyMinion 11"), # Index 13
-    ("scid_moss12.png",    "MossyMinion 12"), # Index 14
+    ("scid_example.png",    "example"), 
 ]
 
 
@@ -66,7 +52,7 @@ SPELL_COORDS_1 = [
     (220, 320), (340, 330), (440, 320), (540, 330), (660, 320),
 ]
 SPELL_COORDS_2 = [
-    (440, 310), (340, 330), (540, 330),
+    (440, 410), (340, 430), (540, 410),
 ]
 
 # ── EVENT TROOP ──
@@ -75,7 +61,10 @@ EVENT_TROOP_COORDS = []
 EVENT_TROOP_SWIPE_DURATION = 3500
 
 # ── EVENT SPELL ──
-EVENT_SPELL_DEFS = []
+EVENT_SPELL_DEFS = [
+    "spell_rage.png",
+    "spell_freeze.png",
+]
 EVENT_SPELL_COORDS = [
     (420, 200),
     (370, 225), (470, 225),
@@ -87,7 +76,7 @@ EVENT_SPELL_COORDS = [
     (370, 375), (470, 375),
     (420, 400),
 ]
-EVENT_SPELL_MAX_TAPS = 40
+EVENT_SPELL_MAX_TAPS = 100
 
 # ── DEPLOY ──
 LOOT_WAIT_MIN = 20
@@ -104,7 +93,7 @@ TEMPLATE_SEARCHING = "searching_opponents.png"
 # ╚══════════════════════════════════════════════════════════════╝
 ENABLE_UPGRADE_BUILDING = True
 ENABLE_UPGRADE_LAB = True
-ENABLE_FALLBACK_TO_SUGGESTED = True
+ENABLE_FALLBACK_TO_SUGGESTED = False
 MAX_FARM_UPGRADE_CYCLES = 3
 
 BUILDER_HEAD_X = 450
@@ -189,11 +178,11 @@ CONFIRM_TEMPLATES_ALL = [
 # priority: 1 = paling atas, 2 = berikutnya, dst. 0 = normal (terakhir)
 # is_hero: True = hero (cek finish_now), False = building (cek cancel)
 BUILDING_TEMPLATES = [
-    ("building_barbarian_king.png",      "Barbarian King",      True,  0),
-    ("building_archer_queen.png",        "Archer Queen",        True,  0),
-    ("building_royal_champion.png",      "Royal Champion",      True,  0),
-    ("building_minion_prince.png",       "Minion Prince",       True,  0),
-    ("building_grand_warden.png",        "Grand Warden",        True,  0),
+    # ("building_barbarian_king.png",      "Barbarian King",      True,  0),
+    # ("building_archer_queen.png",        "Archer Queen",        True,  0),
+    # ("building_royal_champion.png",      "Royal Champion",      True,  0),
+    # ("building_minion_prince.png",       "Minion Prince",       True,  0),
+    # ("building_grand_warden.png",        "Grand Warden",        True,  0),
     
     ("building_lab.png",                 "Laboratorium",        False, 1),
     ("building_clan_castle.png",         "Clan Castle",         False, 1),
@@ -202,16 +191,16 @@ BUILDING_TEMPLATES = [
     ("building_spell_factory.png",       "Spell Factory",       False, 2),
     ("building_elixir_storage.png",      "Elixir Storage",      False, 2),
     ("building_gold_storage.png",        "Gold Storage",        False, 2),
-    ("building_army_camp.png",           "Army Camp",           False, 3),
-    ("building_dark_barracks.png",       "Dark Barracks",       False, 3),
-    ("building_dark_spell_factory.png",  "Dark Spell Factory",  False, 4),
-    ("building_barracks.png",            "Barracks",            False, 4),
-    ("building_dark_elixir_storage.png", "Dark Elixir Storage", False, 4),
-    ("building_workshop.png",            "Workshop",            False, 4),
-    ("building_pet_house.png",           "Pet House",           False, 4),
+    ("building_dark_elixir_storage.png", "Dark Elixir Storage", False, 2),
+    # ("building_army_camp.png",           "Army Camp",           False, 3),
+    # ("building_dark_barracks.png",       "Dark Barracks",       False, 3),
+    # ("building_dark_spell_factory.png",  "Dark Spell Factory",  False, 4),
+    # ("building_barracks.png",            "Barracks",            False, 4),
+    # ("building_workshop.png",            "Workshop",            False, 4),
+    # ("building_pet_house.png",           "Pet House",           False, 4),
 
     
-    ("building_eagle_artillery.png",     "Eagle Artillery",     False, 0),
+    # ("building_eagle_artillery.png",     "Eagle Artillery",     False, 0),
     
     # ("building_townhall.png",           "Town Hall",           False, 0),
     # ("building_builder_hut.png",         "Builder's Hut",       False, 0),
@@ -226,10 +215,10 @@ BUILDING_TEMPLATES = [
 # Tambah sesuai screenshot research item di lab
 LAB_TEMPLATES = [
     ("lab_dragon.png",              "Dragon",          1),
-    ("lab_archer.png",              "Archer",          2),
-    ("lab_minion.png",              "Minion",          2),
-    ("lab_barbarian.png",           "Barbarian",       3),
-    ("lab_freeze_spell.png",        "Freeze Spell",    3),
+    # ("lab_archer.png",              "Archer",          2),
+    # ("lab_minion.png",              "Minion",          2),
+    # ("lab_barbarian.png",           "Barbarian",       3),
+    # ("lab_freeze_spell.png",        "Freeze Spell",    3),
     # ("lab_giant.png",      "Giant",      0),
 ]
 
@@ -708,11 +697,11 @@ def deploy_spells_by_slots(spell_slot_indices):
 
         # Ganjil → COORDS_1 (5 tap), Genap → COORDS_2 (3 tap)
         if idx % 2 == 0:
-            coords = SPELL_COORDS_1
-            tipe = "5x"
-        else:
             coords = SPELL_COORDS_2
             tipe = "3x"
+        else:
+            coords = SPELL_COORDS_1
+            tipe = "5x"
 
         taps = 0
         for cx, cy in coords:
@@ -1061,27 +1050,94 @@ def deploy_brutal():
     if hero_deploy_info:
         max_delay = max(delay for _, delay in hero_deploy_info)
         print(f"   🦸 {len(hero_deploy_info)} hero. Max delay: {max_delay}s")
-
-        start_wait = time.time()
-        event_spell_count = deploy_event_spells()
-        normal_spell_count = deploy_spells_by_slots(spell_slot_indices)
-        spell_time = time.time() - start_wait
-        remaining = max_delay - spell_time
-
-        if remaining > 0:
-            print(f"   ⏳ Sisa delay {remaining:.1f}s...")
-            time.sleep(remaining)
-
-        for slot_x, delay in hero_deploy_info:
-            device.shell(f"input tap {slot_x} {TAP_Y}")
-            print(f"   ⚡ Hero ability! (x={slot_x})")
-            time.sleep(0.3)
+        
+        # Mulai timer
+        start_time = time.time()
+        ability_activated = [False] * len(hero_deploy_info)
+        
+        # ── Deploy event spells & normal spells dengan pengecekan ability ──
+        event_spell_count = 0
+        normal_spell_count = 0
+        
+        # Deploy event spells (dengan interrupt ability)
+        if EVENT_SPELL_DEFS:
+            for spell_file in EVENT_SPELL_DEFS:
+                total_taps = 0
+                while total_taps < EVENT_SPELL_MAX_TAPS:
+                    # Cek ability setiap 5 tap
+                    if total_taps % 5 == 0:
+                        elapsed = time.time() - start_time
+                        for idx, (slot_x, delay) in enumerate(hero_deploy_info):
+                            if not ability_activated[idx] and elapsed >= delay:
+                                device.shell(f"input tap {slot_x} {TAP_Y}")
+                                print(f"   ⚡ Hero ability! (x={slot_x})")
+                                ability_activated[idx] = True
+                    
+                    # Ambil koordinat acak untuk event spell
+                    cx, cy = random.choice(EVENT_SPELL_COORDS)
+                    tx = cx + random.randint(-20, 20)
+                    ty = cy + random.randint(-20, 20)
+                    device.shell(f"input tap {tx} {ty}")
+                    total_taps += 1
+                    event_spell_count += 1
+                    time.sleep(0.15)
+                    
+                    if total_taps >= EVENT_SPELL_MAX_TAPS:
+                        break
+                print(f"   🎪 {spell_file} → {total_taps}x taps")
+        
+        # Deploy normal spells (dengan interrupt ability)
+        if spell_slot_indices:
+            for idx, si in enumerate(spell_slot_indices):   # tambahkan enumerate
+                slot_x = START_X + (si * GAP_X) + (GAP_X // 2)
+                device.shell(f"input tap {slot_x} {TAP_Y}")
+                time.sleep(0.2)
+                
+                if idx % 2 == 0:
+                    coords = SPELL_COORDS_2
+                    tipe = "3x"
+                else:
+                    coords = SPELL_COORDS_1
+                    tipe = "5x"
+                
+                for cx, cy in coords:
+                    tx = cx + random.randint(-15, 15)
+                    ty = cy + random.randint(-15, 15)
+                    device.shell(f"input tap {tx} {ty}")
+                    normal_spell_count += 1
+                    time.sleep(0.2)
+                    
+                    # Cek ability setiap tap
+                    elapsed = time.time() - start_time
+                    for idx2, (slot_x2, delay2) in enumerate(hero_deploy_info):
+                        if not ability_activated[idx2] and elapsed >= delay2:
+                            device.shell(f"input tap {slot_x2} {TAP_Y}")
+                            print(f"   ⚡ Hero ability! (x={slot_x2})")
+                            ability_activated[idx2] = True
+                
+                print(f"   🔮 Spell slot {si} → {len(coords)}x [{tipe}]")
+        
+        # ── Setelah semua spell selesai, aktifkan ability yang belum aktif ──
+        elapsed_total = time.time() - start_time
+        if elapsed_total < max_delay:
+            print(f"   ⏳ Sisa delay {max_delay - elapsed_total:.1f}s...")
+            time.sleep(max_delay - elapsed_total)
+        
+        # Aktifkan semua hero yang belum aktif (jika ada)
+        for idx, (slot_x, delay) in enumerate(hero_deploy_info):
+            if not ability_activated[idx]:
+                device.shell(f"input tap {slot_x} {TAP_Y}")
+                print(f"   ⚡ Hero ability! (x={slot_x})")
+                ability_activated[idx] = True
+        
+        print(f"   📊 Total: {deployed_count} troop | {event_troop_count} event troop | {event_spell_count} event spell | {normal_spell_count} spell")
+        
     else:
+        # ── Kasus tanpa hero ──
         print(f"   🔮 Deploy spells...")
         event_spell_count = deploy_event_spells()
         normal_spell_count = deploy_spells_by_slots(spell_slot_indices)
-
-    print(f"   📊 Total: {deployed_count} troop | {event_troop_count} event troop | {event_spell_count} event spell | {normal_spell_count} spell")
+        print(f"   📊 Total: {deployed_count} troop | {event_troop_count} event troop | {event_spell_count} event spell | {normal_spell_count} spell")
 
 # ╔══════════════════════════════════════════════════════════════╗
 # ║              BATTLE SEQUENCE                                ║

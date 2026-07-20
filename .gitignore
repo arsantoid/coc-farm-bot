@@ -24,3 +24,8 @@ account_config.json
 # File sementara Windows
 Thumbs.db
 desktop.ini
+
+# Unused test/old folders
+code/legacy/
+code/markitdown/
+code/Testing/

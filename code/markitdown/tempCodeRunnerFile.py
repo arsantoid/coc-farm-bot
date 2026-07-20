@@ -1,1 +1,0 @@
-asil_screenshot.md
