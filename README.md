@@ -1,62 +1,35 @@
 # Clash of Clans Farm Bot
 
-Auto-farming bot for Clash of Clans that runs on BlueStacks or LDPlayer emulator. Features include:
+Auto-farming bot for Clash of Clans on BlueStacks or LDPlayer emulator via ADB + OpenCV.
 
-- **Auto-detect ADB & Emulator** - Supports both BlueStacks and LDPlayer
-- **Multi-account Support** - Switch between Supercell ID accounts automatically
-- **Full Farming Loop** - Find match, deploy troops, surrender, repeat
-- **Auto Upgrade** - Building and Lab upgrades
-- **Smart Troop Detection** - Automatically detects troop slots and types
-- **Crash Recovery** - Auto-restarts CoC if it crashes
-
-## Prerequisites
-
-1. **Emulator**: BlueStacks or LDPlayer installed and running
-2. **Clash of Clans**: Installed on the emulator with Supercell ID logged in
-3. **Python 3.9+**: [Download from python.org](https://python.org) (Check "Add to PATH" during install)
+- Auto-detect ADB & Emulator (BlueStacks/LDPlayer/MEmu)
+- Multi-account via Supercell ID
+- Full farm loop: find match, deploy, surrender
+- Auto-upgrade buildings & lab
+- Crash recovery
 
 ## Quick Start
 
-1. Download this repository
-2. Double-click **`start_bot.bat`**
-3. The script will automatically:
-   - Check for Python and install dependencies if missing
-   - Download ADB if not present
-   - Connect to your emulator
-   - Start the bot
-
-## Manual Setup
-
-If the automatic setup fails, install dependencies manually:
-
-```bash
-pip install -r requirements.txt
-```
-
-Download Android Platform Tools and extract to your user folder:
-- Windows: https://developer.android.com/studio/releases/platform-tools
+1. Clone/download repo
+2. Install Python 3.9+ (add to PATH)
+3. Run `start_bot.bat`
 
 ## Configuration
 
-Edit `code/bot_farm_auto_v4.py` to configure your accounts:
+Edit `DAFTAR_AKUN` in `code/bot_farm_auto_v4.py`:
 
 ```python
 DAFTAR_AKUN = [
-    ("scid_example.png", "example"),  # (screenshot_filename, account_name)
+    ("scid_example.png", "example"),
     ("scid_account2.png", "account2"),
 ]
 ```
 
-## Troubleshooting
+## Docs for AI Agents
 
-**Bot can't find ADB:**
-- Ensure `platform-tools` folder is in your user directory (`C:\Users\YourName\platform-tools\`)
-- Or install Android SDK Platform Tools
+- [AGENTS.md](AGENTS.md) — Architecture, coords, solved problems
+- [CHANGELOG.md](CHANGELOG.md) — Full patch history
 
-**Bot can't connect to emulator:**
-- Make sure the emulator is running
-- Try restarting the emulator
+## Disclaimer
 
-**CoC crashes frequently:**
-- LDPlayer users: Try switching network mode from NAT to Bridged in settings
-- BlueStacks users: Disable "ADB debugging" in settings to prevent conflicts
+Educational only. Use at your own risk. Supercell ToS prohibit automation.
