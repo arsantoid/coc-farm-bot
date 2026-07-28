@@ -1,6 +1,11 @@
+import os
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["GOTO_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_MAX_THREADS"] = "1"
 import cv2
 import numpy as np
-import os
 import time
 import random
 import json
@@ -9,6 +14,23 @@ import logging
 import subprocess
 import tempfile
 from ppadb.client import Client as AdbClient
+import reconnect_adb
+
+# safe screencap wrapper - auto-reconnect on failure
+def safe_screencap():
+    global device, client
+    for _att in range(3):
+        try:
+            sc = device.screencap()
+            if sc and len(sc) > 100:
+                return sc
+        except Exception as e:
+            print(f"Screencap fail (attempt {_att+1}): {e}")
+            ok, client, device = reconnect_adb.reconnect_adb()
+            if ok:
+                import time
+                time.sleep(2)
+    return None
 
 # ╔══════════════════════════════════════════════════════════════╗
 # ║              KONFIGURASI PROYEK & PATH                      ║
@@ -47,12 +69,12 @@ MAKSIMAL_WAKTU_PER_AKUN = 3600
 FORCE_REDETECT_DE = False
 MACRO_WAIT = 6
 
-# ── SPELL DEPLOYMENT ──
+# ── SPELL DEPLOYMENT (Tengah Village) ──
 SPELL_COORDS_1 = [
-    (220, 320), (340, 330), (440, 320), (540, 330), (660, 320),
+    (480, 270), (430, 220), (530, 220), (430, 320), (530, 320),
 ]
 SPELL_COORDS_2 = [
-    (440, 410), (340, 430), (540, 410),
+    (480, 220), (480, 320), (430, 270),
 ]
 
 # ── EVENT TROOP ──
@@ -289,28 +311,177 @@ def find_confirm_button_on_screen(screen, context="all", threshold=CONFIRM_THRES
     return None
 
 # ╔══════════════════════════════════════════════════════════════╗
-# ║              KONEKSI ADB                                    ║
+# ║              KONEKSI ADB (auto-detect)                      ║
 # ╚══════════════════════════════════════════════════════════════╝
+def _auto_detect_adb():
+    """Auto-detect ADB server port and emulator device.
+    
+    Strategy: DON'T start/kill ADB servers (that breaks BlueStacks).
+    Just find standard adb.exe, connect to emulator, and let ppadb use port 5037.
+    """
+    import subprocess, socket
+
+    # 1. Find standard adb.exe
+    import shutil
+    import os
+    user_profile = os.environ.get("USERPROFILE", "C:\\")
+    adb_candidates = [
+        os.path.join(user_profile, "platform-tools", "adb.exe"),
+        os.path.join(user_profile, "AppData", "Local", "Android", "Sdk", "platform-tools", "adb.exe"),
+        r"C:\Android\platform-tools\adb.exe",
+    ]
+    path_adb = shutil.which("adb")
+    if path_adb:
+        adb_candidates.insert(0, path_adb)
+
+    adb_path = None
+    for p in adb_candidates:
+        if os.path.isfile(p):
+            adb_path = p
+            break
+    if not adb_path:
+        ld_paths = [
+            r"C:\LDPlayer\LDPlayer9\adb.exe",
+            r"C:\Program Files\LDPlayer\LDPlayer9\adb.exe",
+        ]
+        for p in ld_paths:
+            if os.path.isfile(p):
+                adb_path = p
+                break
+    if not adb_path:
+        return None, None, None
+
+    # 2. DON'T kill anything - just connect to running emulator
+    # Scan common ports
+    emulator_ports = []
+    for port in range(5555, 5570):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.3)
+        if s.connect_ex(("127.0.0.1", port)) == 0:
+            emulator_ports.append(port)
+        s.close()
+
+    # Connect to found ports (this registers them with whatever ADB server is on 5037)
+    for port in emulator_ports:
+        addr = f"127.0.0.1:{port}"
+        subprocess.run([adb_path, "connect", addr], capture_output=True)
+        time.sleep(0.5)
+
+    # Check via adb devices
+    result = subprocess.run([adb_path, "devices"], capture_output=True, text=True)
+    connected_devices = []
+    for line in result.stdout.strip().split("\n")[1:]:
+        parts = line.strip().split()
+        if len(parts) >= 2 and parts[1] == "device":
+            connected_devices.append(parts[0])
+
+    # Also check emulator-XXXX style (LDPlayer native)
+    result2 = subprocess.run([adb_path, "devices"], capture_output=True, text=True)
+    for line in result2.stdout.strip().split("\n")[1:]:
+        parts = line.strip().split()
+        if len(parts) >= 2 and parts[1] == "device" and parts[0] not in connected_devices:
+            connected_devices.append(parts[0])
+
+    return adb_path, connected_devices, emulator_ports
+
+print("🔍 Auto-detecting ADB & emulator...")
+adb_path, devices_found, ports_found = _auto_detect_adb()
+
+if not devices_found:
+    print("❌ Emulator tidak terdeteksi oleh ADB!")
+    print("   Pastikan emulator (BlueStacks/LDPlayer/MEmu) sedang jalan.")
+    logger.error("Emulator tidak terdeteksi!")
+    exit()
+
+# Use standard ADB server port 5037
 client = AdbClient(host="127.0.0.1", port=5037)
 devices = client.devices()
 if len(devices) == 0:
-    print("❌ Emulator tidak terdeteksi oleh ADB!")
-    logger.error("Emulator tidak terdeteksi!")
+    print("❌ ADB server tidak melihat device!")
+    print(f"   Found ports: {ports_found}, device strings: {devices_found}")
+    logger.error("ADB server tidak melihat device!")
     exit()
 device = devices[0]
 print(f"✅ Terhubung ke emulator: {device.serial}")
 logger.info(f"Terhubung ke emulator: {device.serial}")
 
 def launch_coc():
-    """Buka Clash of Clans dari kondisi apapun (termasuk home screen) menggunakan ADB intent."""
+    """Buka Clash of Clans dari kondisi apapun menggunakan ADB."""
     try:
-        device.shell("am start -n com.supercell.clashofclans/.GameApp")
-        print("   📱 Launching CoC...")
-        time.sleep(5)  # Tunggu loading
-        return True
+        # Method 1: am start with various activity names
+        for activity in [
+            "com.supercell.clashofclans/com.supercell.titan.GameApp",
+            "com.supercell.clashofclans/.GameApp",
+            "com.supercell.clashofclans/com.supercell.clashofclans.GameApp",
+        ]:
+            result = device.shell(f"am start -n {activity}")
+            if "Error" not in result and "exception" not in result.lower():
+                print("   📱 Launching CoC (am start)...")
+                time.sleep(8)
+                if is_coc_running():
+                    return True
+
+        # Method 2: monkey launcher (most reliable)
+        device.shell("monkey -p com.supercell.clashofclans -c android.intent.category.LAUNCHER 1")
+        print("   📱 Launching CoC (monkey)...")
+        time.sleep(10)
+        if is_coc_running():
+            return True
+
+        # Method 3: am start with action
+        device.shell("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n com.supercell.clashofclans/com.supercell.titan.GameApp")
+        time.sleep(8)
+        if is_coc_running():
+            return True
+
+        print("   ⚠️ Gagal launch CoC (semua method gagal)")
+        return False
     except Exception as e:
         print(f"   ⚠️ Gagal launch CoC: {e}")
         return False
+
+def is_coc_running():
+    """Check apakah CoC sedang running sebagai foreground app."""
+    try:
+        result = device.shell("dumpsys activity activities | grep mResumedActivity")
+        if "clashofclans" in result.lower() or "supercell" in result.lower():
+            return True
+        # Also check top activity
+        result2 = device.shell("dumpsys window | grep mCurrentFocus")
+        if "clashofclans" in result2.lower():
+            return True
+        return False
+    except:
+        return False
+
+def is_coc_installed():
+    """Check apakah CoC terinstal di emulator."""
+    try:
+        result = device.shell("pm list packages | grep clashofclans")
+        return "clashofclans" in result
+    except:
+        return False
+
+def ensure_coc_running():
+    """Pastikan CoC running. Restart jika force-close. Return True jika OK."""
+    if is_coc_running():
+        return True
+    print("   ⚠️ CoC tidak running! Restarting...")
+    logger.warning("CoC not running, restarting")
+    if not launch_coc():
+        print("   ❌ Gagal restart CoC!")
+        return False
+    # Wait and verify
+    time.sleep(5)
+    for attempt in range(3):
+        if is_coc_running():
+            print("   ✅ CoC restarted successfully!")
+            clear_popups_and_recover()
+            return True
+        print(f"   ⏳ Waiting for CoC... (attempt {attempt+1}/3)")
+        time.sleep(5)
+    print("   ❌ CoC gagal start setelah 3 percobaan!")
+    return False
 
 # ╔══════════════════════════════════════════════════════════════╗
 # ║              CONFIG FILE                                    ║
@@ -369,7 +540,9 @@ def reset_account_state(scid_file):
 # ╚══════════════════════════════════════════════════════════════╝
 def save_debug_screenshot(label="error"):
     try:
-        screencap = device.screencap()
+        screencap = safe_screencap()
+        if screencap is None:
+            return None
         img = cv2.imdecode(np.frombuffer(screencap, np.uint8), cv2.IMREAD_COLOR)
         filename = f"{label}_{int(time.time())}.png"
         path = os.path.join(DEBUG_DIR, filename)
@@ -383,8 +556,22 @@ def save_debug_screenshot(label="error"):
 # ║              SCREENSHOT & TAP HELPERS                       ║
 # ╚══════════════════════════════════════════════════════════════╝
 def take_screenshot():
-    screencap = device.screencap()
-    return cv2.imdecode(np.frombuffer(screencap, np.uint8), cv2.IMREAD_COLOR)
+    global device, client
+    for _att in range(3):
+        try:
+            screencap = safe_screencap()
+            if screencap and len(screencap) > 100:
+                return cv2.imdecode(np.frombuffer(screencap, np.uint8), cv2.IMREAD_COLOR)
+        except Exception as e:
+            print(f"Screenshot fail (attempt {_att+1}): {e}")
+            if _att < 2:
+                from reconnect_adb import reconnect_adb
+                ok, client, device = reconnect_adb()
+                if not ok:
+                    break
+                time.sleep(2)
+    print("Screenshot gagal - reconnect needed")
+    return None
 
 def tap(x, y, offset=5):
     device.shell(f"input tap {x + random.randint(-offset, offset)} {y + random.randint(-offset, offset)}")
@@ -393,7 +580,9 @@ def tap(x, y, offset=5):
 # ║              AUTO-DETECT DE                                 ║
 # ╚══════════════════════════════════════════════════════════════╝
 def detect_de_availability():
-    screencap = device.screencap()
+    screencap = safe_screencap()
+    if screencap is None:
+        return None
     img = cv2.imdecode(np.frombuffer(screencap, np.uint8), cv2.IMREAD_COLOR)
     b, g, r = img[140, 910]
     punya_de = bool(r < 80 and g < 80 and b < 80)
@@ -421,7 +610,7 @@ class ZoomController:
                 buf = ctypes.create_unicode_buffer(length + 1)
                 self.user32.GetWindowTextW(hwnd, buf, length + 1)
                 title = buf.value
-                if "ldplayer" in title.lower():
+                if "bluestacks" in title.lower():
                     if self.user32.IsWindowVisible(hwnd):
                         hasil.append((hwnd, title))
             return True
@@ -453,7 +642,7 @@ class ZoomController:
         vbs_path = os.path.join(tempfile.gettempdir(), "zoom.vbs")
         with open(vbs_path, "w") as f:
             f.write('Set s = WScript.CreateObject("WScript.Shell")\n')
-            f.write('s.AppActivate "LDPlayer"\n')
+            f.write('s.AppActivate "BlueStacks"\n')
             f.write('WScript.Sleep 200\n')
             f.write('s.SendKeys "+z"')
 
@@ -514,31 +703,43 @@ def find_on_screen(template_name, screen, threshold=0.85, scales=None):
     if scales is None:
         scales = [1.0]
 
-    best = None
-    best_conf = -1
+    if not os.path.isfile(template_path):
+        print(f"   ⚠️ {template_name} tidak ditemukan!")
+        return None
+    tpl = cv2.imread(template_path)
+    if tpl is None:
+        print(f"   ⚠️ Gagal load {template_name}")
+        return None
+    if tpl.shape[1] > screen_img.shape[1] or tpl.shape[0] > screen_img.shape[0]:
+        return None
 
-    for scale in scales:
-        if scale == 1.0:
-            tpl = template
-        else:
-            h, w = template.shape[:2]
-            new_w = int(w * scale)
-            new_h = int(h * scale)
+    best = None
+    best_conf = -1.0
+    th, tw = tpl.shape[:2]
+
+    for scale in [1.0]:
+        if scale != 1.0:
+            new_w = int(tw * scale)
+            new_h = int(th * scale)
             if new_w < 1 or new_h < 1:
                 continue
-            tpl = cv2.resize(template, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+            tpl_scaled = cv2.resize(tpl, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+        else:
+            tpl_scaled = tpl
 
-        th, tw = tpl.shape[:2]
-        if th >= screen.shape[0] or tw >= screen.shape[1]:
+        th_s, tw_s = tpl_scaled.shape[:2]
+        if th_s >= screen_img.shape[0] or tw_s >= screen_img.shape[1]:
             continue
 
-        result = cv2.matchTemplate(screen, tpl, cv2.TM_CCOEFF_NORMED)
+        import gc
+        gc.collect()
+        result = cv2.matchTemplate(screen_img, tpl_scaled, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
         if max_val >= threshold and max_val > best_conf:
             best_conf = max_val
-            cx = max_loc[0] + (tw // 2)
-            cy = max_loc[1] + (th // 2)
+            cx = max_loc[0] + (tw_s // 2)
+            cy = max_loc[1] + (th_s // 2)
             best = (cx, cy, max_val)
 
     return best
@@ -550,7 +751,9 @@ def find_template(template_name, threshold=0.85, scales=None):
     if template is None:
         return None
 
-    screencap = device.screencap()
+    screencap = safe_screencap()
+    if screencap is None:
+        return None
     screen_img = cv2.imdecode(np.frombuffer(screencap, np.uint8), cv2.IMREAD_COLOR)
 
     if scales is None:
@@ -574,6 +777,8 @@ def find_template(template_name, threshold=0.85, scales=None):
         if th >= screen_img.shape[0] or tw >= screen_img.shape[1]:
             continue
 
+        import gc
+        gc.collect()
         result = cv2.matchTemplate(screen_img, tpl, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
@@ -593,12 +798,14 @@ def detect_troop_slots():
     if empty_template is None:
         print("   ⚠️ empty_slot.png tidak ada! Assume semua terisi.")
         return [True] * 11
-    screencap = device.screencap()
+    screencap = safe_screencap()
+    if screencap is None:
+        return None
     screen = cv2.imdecode(np.frombuffer(screencap, np.uint8), cv2.IMREAD_COLOR)
 
     tw = empty_template.shape[1]
-    START_X = 168
-    TOTAL_SLOTS = 11
+    START_X = 110  # Digeser ke kiri agar slot paling kiri ikut (sebelumnya 168)
+    TOTAL_SLOTS = 12 # Tambah jadi 12 slot
     TAP_Y = 495
 
     result = cv2.matchTemplate(screen, empty_template, cv2.TM_CCOEFF_NORMED)
@@ -666,7 +873,9 @@ def find_in_bar(template_file):
         return None
 
     h, w = template.shape[:2]
-    screencap = device.screencap()
+    screencap = safe_screencap()
+    if screencap is None:
+        return None
     screen_img = cv2.imdecode(np.frombuffer(screencap, np.uint8), cv2.IMREAD_COLOR)
     bar_area = screen_img[456:540, 0:960]
     result = cv2.matchTemplate(bar_area, template, cv2.TM_CCOEFF_NORMED)
@@ -685,7 +894,7 @@ def deploy_spells_by_slots(spell_slot_indices):
     if not spell_slot_indices:
         return 0
 
-    START_X = 168
+    START_X = 110  # Samakan dengan detect_troop_slots
     GAP_X = 58
     TAP_Y = 495
 
@@ -858,6 +1067,12 @@ def clear_popups_and_recover():
 # ║              CONNECTION LOST HANDLER                        ║
 # ╚══════════════════════════════════════════════════════════════╝
 def handle_connection_lost():
+    # Check if CoC crashed (force-close)
+    if not is_coc_running():
+        print("   💀 CoC force-closed! Restarting...")
+        logger.warning("CoC force-closed, restarting")
+        return ensure_coc_running()
+
     if find_and_click("reload.png", threshold=0.85):
         print("   🔄 RELOAD terdeteksi! Klik RELOAD...")
         logger.info("RELOAD detected, clicking RELOAD")
@@ -901,7 +1116,9 @@ def press_home():
 # ╚══════════════════════════════════════════════════════════════╝
 def cek_status_resource(punya_de=True):
     print("🔍 Mengecek kapasitas Storage...")
-    screencap = device.screencap()
+    screencap = safe_screencap()
+    if screencap is None:
+        return None
     img = cv2.imdecode(np.frombuffer(screencap, np.uint8), cv2.IMREAD_COLOR)
     b_g, g_g, r_g = img[39, 760]
     b_e, g_e, r_e = img[91, 760]
@@ -989,7 +1206,7 @@ def deploy_brutal():
     print("⚔️ Memulai deploy...")
     normalize_camera()
 
-    START_X = 168
+    START_X = 110
     GAP_X = 58
     TAP_Y = 495
     titik_lompat = [(350, 80), (600, 85)]
@@ -1006,7 +1223,7 @@ def deploy_brutal():
         filled = [i for i, t in enumerate(slots) if t]
         boundary = max(filled) if filled else -1
 
-    spell_slot_indices = [i for i in range(boundary + 1, 11) if slots[i]]
+    spell_slot_indices = [i for i in range(boundary + 1, 12) if slots[i]]
     troop_indices = [i for i, t in enumerate(slots) if t and i not in spell_slot_indices]
 
     print(f"   📊 {total_terisi} slot | Hero: {list(hero_slots.keys())} | Siege: {siege_slots} | Spell: {spell_slot_indices}")
@@ -1965,7 +2182,7 @@ def main_farming_loop():
     config = load_config()
 
     # ── SWITCH KE AKUN AWAL (hanya kalau fresh start) ──
-    if is_first_run:
+    if is_first_run and len(DAFTAR_AKUN) > 1:
         scid_awal, nama_awal = DAFTAR_AKUN[current_index]
         print(f"\n🔄 Switch ke akun awal: {nama_awal} (Index {current_index})")
 
@@ -2014,8 +2231,8 @@ def main_farming_loop():
             print("└" + "─" * 53 + "")
             logger.info(f"=== AKUN: {nama} ({current_index}/{total_akun}) ===")
 
-            # ── SWITCH AKUN (hanya jika bukan first run) ──
-            if not is_first_run:
+            # ── SWITCH AKUN (hanya jika bukan first run dan multi account) ──
+            if not is_first_run and len(DAFTAR_AKUN) > 1:
                 if not switch_next_account(scid_file):
                     print(f"⚠️ Gagal pindah ke {nama}, skip...")
                     logger.warning(f"Gagal pindah ke {nama}")
@@ -2033,6 +2250,11 @@ def main_farming_loop():
                 is_first_run = False
 
             # ── ZOOM ──
+            # Pastikan CoC running sebelum mulai
+            if not ensure_coc_running():
+                print(f"   ❌ CoC gagal! Skip akun {nama}...")
+                current_index += 1
+                continue
             try:
                 zoom_ctrl.zoom_out()
             except Exception as e:
