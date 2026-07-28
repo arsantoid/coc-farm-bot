@@ -1194,36 +1194,15 @@ def format_resource_status(gold_full, elixir_full, de_full, punya_de):
 # ║              CAMERA                                         ║
 # ╚══════════════════════════════════════════════════════════════╝
 def normalize_camera():
-    print("📷 Pinch zoom-out & geser kamera ke tengah...")
-    # Pinch zoom-out ADB (dua jari geser ke tengah)
-    for _ in range(3):
-        cmd = (
-            "sendevent /dev/input/event4 3 57 0;"
-            "sendevent /dev/input/event4 3 53 480;"
-            "sendevent /dev/input/event4 3 54 135;"
-            "sendevent /dev/input/event4 1 330 1;"
-            "sendevent /dev/input/event4 3 57 1;"
-            "sendevent /dev/input/event4 3 53 480;"
-            "sendevent /dev/input/event4 3 54 405;"
-            "sendevent /dev/input/event4 1 330 1;"
-            "sendevent /dev/input/event4 0 0 0;"
-            "sendevent /dev/input/event4 3 53 480;"
-            "sendevent /dev/input/event4 3 54 270;"
-            "sendevent /dev/input/event4 0 0 0;"
-            "sendevent /dev/input/event4 1 330 0;"
-            "sendevent /dev/input/event4 3 57 -1;"
-            "sendevent /dev/input/event4 0 0 0;"
-        )
-        # Fallback to multiple swipe cross pattern to simulate zoom out on various devices
-        safe_shell("input swipe 480 100 480 300 200")  # Top to center
-        safe_shell("input swipe 480 440 480 300 200")  # Bottom to center
-        safe_shell("input swipe 200 270 480 270 200")  # Left to center
-        safe_shell("input swipe 760 270 480 270 200")  # Right to center
-    
-    # Pastikan geser ke tengah desa
-    safe_shell("input swipe 480 200 480 450 300")
+    print("📷 Geser kamera ke tengah bawah (fokus base)...")
+    # Karena ADB pinch zoom kadang diblok emulator,
+    # kita tidak lagi zoom out paksa.
+    # Cukup geser layar supaya tengah base ada di pandangan.
+    safe_shell("input swipe 480 150 480 300 300")
     time.sleep(0.5)
-    safe_shell("input swipe 600 300 400 300 300")
+    safe_shell("input swipe 480 150 480 300 300")
+    time.sleep(0.5)
+    safe_shell("input swipe 600 300 480 300 300")
     time.sleep(0.5)
 
 # ╔══════════════════════════════════════════════════════════════╗
@@ -1277,7 +1256,9 @@ def deploy_brutal():
     START_X = 110
     GAP_X = 58
     TAP_Y = 495
-    titik_lompat = [(200, 100), (760, 100), (200, 440), (760, 440), (480, 50)]
+    # Deploy di ujung/tepi layar luar (BOX) supaya tidak kena zona merah.
+    # Kiri, Atas, Kanan, Bawah (di luar jangkauan village)
+    titik_lompat = [(80, 200), (480, 50), (880, 200), (880, 440), (80, 440)]
 
     slots = detect_troop_slots()
     total_terisi = sum(slots)
