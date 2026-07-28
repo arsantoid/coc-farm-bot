@@ -404,6 +404,28 @@ def _auto_detect_adb():
 
     return adb_path, connected_devices, emulator_ports
 
+# ╔══════════════════════════════════════════════════════════════╗
+# ║              EMULATOR AUTO-DETECT                           ║
+# ╚══════════════════════════════════════════════════════════════╝
+def detect_emulator_type():
+    """Deteksi jenis emulator (BlueStacks/LDPlayer/MEmu) dari running process."""
+    import subprocess
+    try:
+        result = subprocess.run(["tasklist", "/FO", "CSV"], capture_output=True, text=True, timeout=5)
+        output = result.stdout.lower()
+        if "hd-player.exe" in output or "bluestacks" in output:
+            return "bluestacks"
+        elif "dnplayer.exe" in output or "ld9boxsvc" in output:
+            return "ldplayer"
+        elif "memu" in output:
+            return "memu"
+    except Exception:
+        pass
+    return "unknown"
+
+EMULATOR_TYPE = detect_emulator_type()
+print(f"   🎮 Emulator type: {EMULATOR_TYPE.upper()}")
+
 print("🔍 Auto-detecting ADB & emulator...")
 adb_path, devices_found, ports_found = _auto_detect_adb()
 
