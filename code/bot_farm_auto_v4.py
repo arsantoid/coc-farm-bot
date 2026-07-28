@@ -1194,7 +1194,33 @@ def format_resource_status(gold_full, elixir_full, de_full, punya_de):
 # ║              CAMERA                                         ║
 # ╚══════════════════════════════════════════════════════════════╝
 def normalize_camera():
-    print("📷 Normalisasi kamera ke atas (swipe down)...")
+    print("📷 Pinch zoom-out & geser kamera ke tengah...")
+    # Pinch zoom-out ADB (dua jari geser ke tengah)
+    for _ in range(3):
+        cmd = (
+            "sendevent /dev/input/event4 3 57 0;"
+            "sendevent /dev/input/event4 3 53 480;"
+            "sendevent /dev/input/event4 3 54 135;"
+            "sendevent /dev/input/event4 1 330 1;"
+            "sendevent /dev/input/event4 3 57 1;"
+            "sendevent /dev/input/event4 3 53 480;"
+            "sendevent /dev/input/event4 3 54 405;"
+            "sendevent /dev/input/event4 1 330 1;"
+            "sendevent /dev/input/event4 0 0 0;"
+            "sendevent /dev/input/event4 3 53 480;"
+            "sendevent /dev/input/event4 3 54 270;"
+            "sendevent /dev/input/event4 0 0 0;"
+            "sendevent /dev/input/event4 1 330 0;"
+            "sendevent /dev/input/event4 3 57 -1;"
+            "sendevent /dev/input/event4 0 0 0;"
+        )
+        # Fallback to multiple swipe cross pattern to simulate zoom out on various devices
+        safe_shell("input swipe 480 100 480 300 200")  # Top to center
+        safe_shell("input swipe 480 440 480 300 200")  # Bottom to center
+        safe_shell("input swipe 200 270 480 270 200")  # Left to center
+        safe_shell("input swipe 760 270 480 270 200")  # Right to center
+    
+    # Pastikan geser ke tengah desa
     safe_shell("input swipe 480 200 480 450 300")
     time.sleep(0.5)
     safe_shell("input swipe 600 300 400 300 300")
@@ -1251,7 +1277,7 @@ def deploy_brutal():
     START_X = 110
     GAP_X = 58
     TAP_Y = 495
-    titik_lompat = [(350, 80), (600, 85)]
+    titik_lompat = [(200, 100), (760, 100), (200, 440), (760, 440), (480, 50)]
 
     slots = detect_troop_slots()
     total_terisi = sum(slots)
