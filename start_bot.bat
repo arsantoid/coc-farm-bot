@@ -45,7 +45,7 @@ if %errorlevel% neq 0 (
 :: 2. Check and Install Requirements
 echo.
 echo [2/4] Checking dependencies...
-python -c "import cv2, numpy, pure_python_adb" >nul 2>&1
+python -c "import cv2, numpy, ppadb" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [!] Installing required Python packages...
     python -m pip install -r requirements.txt
