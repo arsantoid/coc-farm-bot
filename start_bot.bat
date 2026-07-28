@@ -22,18 +22,44 @@ if %errorlevel% neq 0 (
     echo [OK] Found !PY_VER!
 )
 
+:: 1.5 Check and install pip if missing
+python -m pip --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [!] pip is missing, installing...
+    python -m ensurepip --upgrade >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo [!] ensurepip failed, downloading get-pip.py...
+        powershell -Command "Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile '%TEMP%\get-pip.py'"
+        python "%TEMP%\get-pip.py"
+        del "%TEMP%\get-pip.py"
+    )
+    python -m pip --version >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo [!] Failed to install pip! Please reinstall Python with pip enabled.
+        pause
+        exit /b
+    )
+    echo [OK] pip installed.
+)
+
 :: 2. Check and Install Requirements
 echo.
 echo [2/4] Checking dependencies...
 python -c "import cv2, numpy, pure_python_adb" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [!] Installing required Python packages...
-    pip install -r requirements.txt
+    python -m pip install -r requirements.txt
     if %errorlevel% neq 0 (
-        echo [!] Failed to install dependencies. Try running: pip install opencv-python numpy pure-python-adb
+        echo [!] Retrying with --user flag...
+        python -m pip install --user -r requirements.txt
+    )
+    if %errorlevel% neq 0 (
+        echo [!] Failed to install dependencies.
+        echo [!] Try running manually: python -m pip install opencv-python numpy pure-python-adb
         pause
         exit /b
     )
+    echo [OK] Dependencies installed.
 ) else (
     echo [OK] All dependencies installed.
 )
@@ -73,9 +99,8 @@ echo.
 echo [4/4] Scanning emulator ports...
 "%ADB_PATH%" connect 127.0.0.1:5555 >nul 2>&1
 "%ADB_PATH%" connect 127.0.0.1:5556 >nul 2>&1
-for /L %%p in (5557,1,5569) do (
-    "%ADB_PATH%" connect 127.0.0.1:%%p >nul 2>&1
-)
+"%ADB_PATH%" connect 127.0.0.1:5557 >nul 2>&1
+"%ADB_PATH%" connect 127.0.0.1:5558 >nul 2>&1
 "%ADB_PATH%" devices
 
 :: Make sure CoC is running
