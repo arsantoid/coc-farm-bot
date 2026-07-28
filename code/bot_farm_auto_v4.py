@@ -16,6 +16,26 @@ import tempfile
 from ppadb.client import Client as AdbClient
 import reconnect_adb
 
+# safe shell wrapper - auto-reconnect on failure
+def safe_shell(cmd):
+    """Jalankan shell command dengan auto-reconnect jika offline."""
+    global device, client
+    for attempt in range(3):
+        try:
+            return device.shell(cmd)
+        except Exception as e:
+            err = str(e).lower()
+            if "offline" in err or "not found" in err or "closed" in err:
+                print(f"⚠️ ADB connection lost during shell '{cmd}'. Reconnecting...")
+                import reconnect_adb
+                success, new_client, new_device = reconnect_adb.reconnect_adb()
+                if success and new_device:
+                    client = new_client
+                    device = new_device
+                    continue
+            return None
+    return None
+
 # safe screencap wrapper - auto-reconnect on failure
 def safe_screencap():
     global device, client
@@ -414,7 +434,7 @@ def launch_coc():
             "com.supercell.clashofclans/.GameApp",
             "com.supercell.clashofclans/com.supercell.clashofclans.GameApp",
         ]:
-            result = device.shell(f"am start -n {activity}")
+            result = safe_shell(f"am start -n {activity}")
             if "Error" not in result and "exception" not in result.lower():
                 print("   📱 Launching CoC (am start)...")
                 time.sleep(8)
@@ -422,14 +442,14 @@ def launch_coc():
                     return True
 
         # Method 2: monkey launcher (most reliable)
-        device.shell("monkey -p com.supercell.clashofclans -c android.intent.category.LAUNCHER 1")
+        safe_shell("monkey -p com.supercell.clashofclans -c android.intent.category.LAUNCHER 1")
         print("   📱 Launching CoC (monkey)...")
         time.sleep(10)
         if is_coc_running():
             return True
 
         # Method 3: am start with action
-        device.shell("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n com.supercell.clashofclans/com.supercell.titan.GameApp")
+        safe_shell("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n com.supercell.clashofclans/com.supercell.titan.GameApp")
         time.sleep(8)
         if is_coc_running():
             return True
@@ -443,11 +463,11 @@ def launch_coc():
 def is_coc_running():
     """Check apakah CoC sedang running sebagai foreground app."""
     try:
-        result = device.shell("dumpsys activity activities | grep mResumedActivity")
+        result = safe_shell("dumpsys activity activities | grep mResumedActivity")
         if "clashofclans" in result.lower() or "supercell" in result.lower():
             return True
         # Also check top activity
-        result2 = device.shell("dumpsys window | grep mCurrentFocus")
+        result2 = safe_shell("dumpsys window | grep mCurrentFocus")
         if "clashofclans" in result2.lower():
             return True
         return False
@@ -457,7 +477,7 @@ def is_coc_running():
 def is_coc_installed():
     """Check apakah CoC terinstal di emulator."""
     try:
-        result = device.shell("pm list packages | grep clashofclans")
+        result = safe_shell("pm list packages | grep clashofclans")
         return "clashofclans" in result
     except:
         return False
@@ -574,7 +594,7 @@ def take_screenshot():
     return None
 
 def tap(x, y, offset=5):
-    device.shell(f"input tap {x + random.randint(-offset, offset)} {y + random.randint(-offset, offset)}")
+    safe_shell(f"input tap {x + random.randint(-offset, offset)} {y + random.randint(-offset, offset)}")
 
 # ╔══════════════════════════════════════════════════════════════╗
 # ║              AUTO-DETECT DE                                 ║
@@ -665,9 +685,9 @@ class ZoomController:
         time.sleep(MACRO_WAIT)
 
         print("📜 Scroll kamera ke atas (swipe down)...")
-        device.shell("input swipe 480 100 480 400 400")
+        safe_shell("input swipe 480 100 480 400 400")
         time.sleep(1)
-        device.shell("input swipe 480 100 480 400 400")
+        safe_shell("input swipe 480 100 480 400 400")
         time.sleep(1)
 
         print("✅ Zoom selesai!")
@@ -685,7 +705,7 @@ def find_and_click(template_name, threshold=0.85, random_offset=True):
         if random_offset:
             click_x += random.randint(-5, 5)
             click_y += random.randint(-5, 5)
-        device.shell(f"input tap {click_x} {click_y}")
+        safe_shell(f"input tap {click_x} {click_y}")
         print(f"🎯 Tap {template_name} ({acc:.2f})")
         return True
     return False
@@ -857,9 +877,9 @@ USE_ARMY_Y = 135
 def load_saved_army():
     print("   🏋️ Loading saved army preset...")
     time.sleep(1)
-    device.shell(f"input tap {SAVED_RECIPE_X} {SAVED_RECIPE_Y}")
+    safe_shell(f"input tap {SAVED_RECIPE_X} {SAVED_RECIPE_Y}")
     time.sleep(1.5)
-    device.shell(f"input tap {USE_ARMY_X} {USE_ARMY_Y}")
+    safe_shell(f"input tap {USE_ARMY_X} {USE_ARMY_Y}")
     time.sleep(2)
     print("   ✅ Saved army loaded!")
 
@@ -901,7 +921,7 @@ def deploy_spells_by_slots(spell_slot_indices):
     total = 0
     for idx, si in enumerate(spell_slot_indices):
         slot_x = START_X + (si * GAP_X) + (GAP_X // 2)
-        device.shell(f"input tap {slot_x} {TAP_Y}")
+        safe_shell(f"input tap {slot_x} {TAP_Y}")
         time.sleep(0.2)
 
         # Ganjil → COORDS_1 (5 tap), Genap → COORDS_2 (3 tap)
@@ -916,7 +936,7 @@ def deploy_spells_by_slots(spell_slot_indices):
         for cx, cy in coords:
             tx = cx + random.randint(-15, 15)
             ty = cy + random.randint(-15, 15)
-            device.shell(f"input tap {tx} {ty}")
+            safe_shell(f"input tap {tx} {ty}")
             taps += 1
             total += 1
             time.sleep(0.2)
@@ -942,13 +962,13 @@ def deploy_event_troops():
             continue
 
         tx, ty, conf = troop_pos
-        device.shell(f"input tap {tx} {ty}")
+        safe_shell(f"input tap {tx} {ty}")
         time.sleep(0.3)
 
         for bx, by in EVENT_TROOP_COORDS:
             jx = bx + random.randint(-15, 15)
             jy = by + random.randint(-10, 10)
-            device.shell(f"input swipe {jx} {jy} {jx} {jy} {EVENT_TROOP_SWIPE_DURATION}")
+            safe_shell(f"input swipe {jx} {jy} {jx} {jy} {EVENT_TROOP_SWIPE_DURATION}")
             total += 1
             time.sleep(0.2)
 
@@ -975,7 +995,7 @@ def deploy_event_spells():
             continue
 
         sx, sy, conf = spell_pos
-        device.shell(f"input tap {sx} {sy}")
+        safe_shell(f"input tap {sx} {sy}")
         time.sleep(0.3)
 
         batch = 0
@@ -987,7 +1007,7 @@ def deploy_event_spells():
                     break
                 tx = cx + random.randint(-20, 20)
                 ty = cy + random.randint(-20, 20)
-                device.shell(f"input tap {tx} {ty}")
+                safe_shell(f"input tap {tx} {ty}")
                 total_taps += 1
                 taps_this += 1
                 time.sleep(0.15)
@@ -1032,7 +1052,7 @@ def clear_event_popups():
 
     # Tap X cukup sekali di luar loop
     for _ in range(4):
-        device.shell(f"input tap {random.randint(920,930)} {random.randint(56,57)}")
+        safe_shell(f"input tap {random.randint(920,930)} {random.randint(56,57)}")
         time.sleep(0.3)  # lebih cepat
 
     if cleared > 0:
@@ -1058,7 +1078,7 @@ def clear_popups_and_recover():
             break
 
     for i in range(4):
-        device.shell(f"input tap {random.randint(920,930)} {random.randint(56,57)}")
+        safe_shell(f"input tap {random.randint(920,930)} {random.randint(56,57)}")
         time.sleep(0.5)
 
     print("   ✅ Popup cleanup selesai")
@@ -1106,7 +1126,7 @@ def close_ldplayer():
         print("   ⚠️ LDPlayer window tidak ditemukan, skip minimize")
 
 def press_home():
-    device.shell("input keyevent 3")
+    safe_shell("input keyevent 3")
     time.sleep(1)
     print("   🏠 Home button ditekan!")
     logger.info("Home button pressed")
@@ -1153,9 +1173,9 @@ def format_resource_status(gold_full, elixir_full, de_full, punya_de):
 # ╚══════════════════════════════════════════════════════════════╝
 def normalize_camera():
     print("📷 Normalisasi kamera ke atas (swipe down)...")
-    device.shell("input swipe 480 200 480 450 300")
+    safe_shell("input swipe 480 200 480 450 300")
     time.sleep(0.5)
-    device.shell("input swipe 600 300 400 300 300")
+    safe_shell("input swipe 600 300 400 300 300")
     time.sleep(0.5)
 
 # ╔══════════════════════════════════════════════════════════════╗
@@ -1235,14 +1255,14 @@ def deploy_brutal():
 
     for i in troop_indices:
         slot_x = START_X + (i * GAP_X) + (GAP_X // 2)
-        device.shell(f"input tap {slot_x} {TAP_Y}")
+        safe_shell(f"input tap {slot_x} {TAP_Y}")
         time.sleep(0.1)
 
         if i in hero_slots:
             for base_x, base_y in titik_lompat:
                 hx = base_x + random.randint(-15, 15)
                 hy = base_y + random.randint(-10, 10)
-                device.shell(f"input tap {hx} {hy}")
+                safe_shell(f"input tap {hx} {hy}")
                 time.sleep(0.3)
             hero_deploy_info.append((slot_x, hero_slots[i]))
             print(f"   🦸 Hero slot {i} deployed! (delay={hero_slots[i]}s)")
@@ -1250,7 +1270,7 @@ def deploy_brutal():
         elif i in siege_slots:
             sx = 480 + random.randint(-50, 50)
             sy = 270 + random.randint(-50, 50)
-            device.shell(f"input tap {sx} {sy}")
+            safe_shell(f"input tap {sx} {sy}")
             print(f"   🚗 Siege slot {i} deployed!")
             time.sleep(0.3)
 
@@ -1258,7 +1278,7 @@ def deploy_brutal():
             for base_x, base_y in titik_lompat:
                 jx = base_x + random.randint(-15, 15)
                 jy = base_y + random.randint(-10, 10)
-                device.shell(f"input swipe {jx} {jy} {jx} {jy} 2200")
+                safe_shell(f"input swipe {jx} {jy} {jx} {jy} 2200")
             time.sleep(0.3)
 
         deployed_count += 1
@@ -1286,7 +1306,7 @@ def deploy_brutal():
                         elapsed = time.time() - start_time
                         for idx, (slot_x, delay) in enumerate(hero_deploy_info):
                             if not ability_activated[idx] and elapsed >= delay:
-                                device.shell(f"input tap {slot_x} {TAP_Y}")
+                                safe_shell(f"input tap {slot_x} {TAP_Y}")
                                 print(f"   ⚡ Hero ability! (x={slot_x})")
                                 ability_activated[idx] = True
                     
@@ -1294,7 +1314,7 @@ def deploy_brutal():
                     cx, cy = random.choice(EVENT_SPELL_COORDS)
                     tx = cx + random.randint(-20, 20)
                     ty = cy + random.randint(-20, 20)
-                    device.shell(f"input tap {tx} {ty}")
+                    safe_shell(f"input tap {tx} {ty}")
                     total_taps += 1
                     event_spell_count += 1
                     time.sleep(0.15)
@@ -1307,7 +1327,7 @@ def deploy_brutal():
         if spell_slot_indices:
             for idx, si in enumerate(spell_slot_indices):   # tambahkan enumerate
                 slot_x = START_X + (si * GAP_X) + (GAP_X // 2)
-                device.shell(f"input tap {slot_x} {TAP_Y}")
+                safe_shell(f"input tap {slot_x} {TAP_Y}")
                 time.sleep(0.2)
                 
                 if idx % 2 == 0:
@@ -1320,7 +1340,7 @@ def deploy_brutal():
                 for cx, cy in coords:
                     tx = cx + random.randint(-15, 15)
                     ty = cy + random.randint(-15, 15)
-                    device.shell(f"input tap {tx} {ty}")
+                    safe_shell(f"input tap {tx} {ty}")
                     normal_spell_count += 1
                     time.sleep(0.2)
                     
@@ -1328,7 +1348,7 @@ def deploy_brutal():
                     elapsed = time.time() - start_time
                     for idx2, (slot_x2, delay2) in enumerate(hero_deploy_info):
                         if not ability_activated[idx2] and elapsed >= delay2:
-                            device.shell(f"input tap {slot_x2} {TAP_Y}")
+                            safe_shell(f"input tap {slot_x2} {TAP_Y}")
                             print(f"   ⚡ Hero ability! (x={slot_x2})")
                             ability_activated[idx2] = True
                 
@@ -1343,7 +1363,7 @@ def deploy_brutal():
         # Aktifkan semua hero yang belum aktif (jika ada)
         for idx, (slot_x, delay) in enumerate(hero_deploy_info):
             if not ability_activated[idx]:
-                device.shell(f"input tap {slot_x} {TAP_Y}")
+                safe_shell(f"input tap {slot_x} {TAP_Y}")
                 print(f"   ⚡ Hero ability! (x={slot_x})")
                 ability_activated[idx] = True
         
@@ -1399,11 +1419,11 @@ def force_restart_coc():
     print("   🔄 Force restart CoC untuk reset koneksi...")
     try:
         # 1. Paksa tutup aplikasi
-        device.shell("am force-stop com.supercell.clashofclans")
+        safe_shell("am force-stop com.supercell.clashofclans")
         time.sleep(2)
         
         # 2. Buka lagi
-        device.shell("am start -n com.supercell.clashofclans/.GameApp")
+        safe_shell("am start -n com.supercell.clashofclans/.GameApp")
         print("   ⏳ Menunggu loading ulang...")
         time.sleep(8)  # Kasih waktu loading
         
@@ -1517,15 +1537,15 @@ def battle_sequence(army_loaded=False):
                     return army_loaded
 
                 print("🏳️ Surrender!")
-                device.shell("input tap 62 420")
+                safe_shell("input tap 62 420")
                 time.sleep(1.5)
 
                 if handle_connection_lost():
                     return army_loaded
 
-                device.shell("input tap 584 344")
+                safe_shell("input tap 584 344")
                 time.sleep(3)
-                device.shell("input tap 476 459")
+                safe_shell("input tap 476 459")
                 time.sleep(4)
 
                 handle_connection_lost()
@@ -1555,7 +1575,7 @@ def battle_sequence(army_loaded=False):
 
         print("🔧 Recovery...")
         for _ in range(3):
-            device.shell("input keyevent 4")
+            safe_shell("input keyevent 4")
             time.sleep(0.5)
         clear_popups_and_recover()
         time.sleep(2)
@@ -1570,7 +1590,7 @@ def is_in_menu(x, y):
     return MENU_LEFT <= x <= MENU_RIGHT and MENU_TOP <= y <= MENU_BOTTOM
 
 def scroll_menu_down():
-    device.shell(f"input swipe {SCROLL_X} {SCROLL_Y_BOTTOM} {SCROLL_X} {SCROLL_Y_TOP} {SCROLL_SPEED}")
+    safe_shell(f"input swipe {SCROLL_X} {SCROLL_Y_BOTTOM} {SCROLL_X} {SCROLL_Y_TOP} {SCROLL_SPEED}")
     time.sleep(1.5)
 
 def scan_buildings_in_menu(screen):
@@ -1631,9 +1651,9 @@ def auto_upgrade_suggested_fallback(context="builder"):
     header = find_on_screen(TEMPLATE_HEADER, screen, threshold=HEADER_THRESHOLD)
     if header is None:
         if context == "lab":
-            device.shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
+            safe_shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
         else:
-            device.shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
+            safe_shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
         time.sleep(DELAY_MENU_LOAD)
 
     for attempt in range(MAX_SCROLLS + 1):
@@ -1725,9 +1745,9 @@ def auto_upgrade_suggested_fallback(context="builder"):
         tap(CLOSE_X, CLOSE_Y)
         time.sleep(DELAY_AFTER_CLOSE)
         if context == "lab":
-            device.shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
+            safe_shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
         else:
-            device.shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
+            safe_shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
         time.sleep(DELAY_MENU_LOAD)
 
     tap(CLOSE_X, CLOSE_Y)
@@ -1750,7 +1770,7 @@ def auto_upgrade_building():
     skipped_resource = set()
     stop_reason = ""
 
-    device.shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
+    safe_shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
     time.sleep(DELAY_MENU_LOAD)
 
     for scroll_idx in range(MAX_SCROLLS + 1):
@@ -1794,7 +1814,7 @@ def auto_upgrade_building():
                     time.sleep(DELAY_AFTER_CLOSE)
                     already_upgrading += 1
                     completed_labels.add(label)
-                    device.shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
+                    safe_shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
                     time.sleep(DELAY_MENU_LOAD)
                     continue
 
@@ -1815,7 +1835,7 @@ def auto_upgrade_building():
                 completed_labels.add(label)
                 resource_limited = True          # <--- TAMBAHKAN INI
                 skipped_resource.add(label)      # <--- TAMBAHKAN INI (biar ga diulang terus)
-                device.shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
+                safe_shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
                 time.sleep(DELAY_MENU_LOAD)
                 # JANGAN break, tapi kita lanjut ke item berikutnya.
                 # Tapi karena resource_limited sudah True, setelah fungsi selesai, main loop akan tau untuk farm lagi.
@@ -1846,7 +1866,7 @@ def auto_upgrade_building():
 
             tap(CLOSE_X, CLOSE_Y)
             time.sleep(DELAY_AFTER_CLOSE)
-            device.shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
+            safe_shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
             time.sleep(DELAY_MENU_LOAD)
             continue
 
@@ -1878,7 +1898,7 @@ def auto_upgrade_building():
                 time.sleep(DELAY_AFTER_CLOSE)
                 resource_limited = True
                 skipped_resource.add(label)
-                device.shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
+                safe_shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
                 time.sleep(DELAY_MENU_LOAD)
                 continue
 
@@ -1922,7 +1942,7 @@ def auto_upgrade_building():
 
             tap(CLOSE_X, CLOSE_Y)
             time.sleep(DELAY_AFTER_CLOSE)
-            device.shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
+            safe_shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
             time.sleep(DELAY_MENU_LOAD)
             continue
 
@@ -1933,7 +1953,7 @@ def auto_upgrade_building():
                 time.sleep(DELAY_AFTER_CLOSE)
                 already_upgrading += 1
                 completed_labels.add(label)
-                device.shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
+                safe_shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
                 time.sleep(DELAY_MENU_LOAD)
                 continue
 
@@ -1942,7 +1962,7 @@ def auto_upgrade_building():
             time.sleep(DELAY_AFTER_CLOSE)
             skipped += 1
             completed_labels.add(label)
-            device.shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
+            safe_shell(f"input tap {BUILDER_HEAD_X} {BUILDER_HEAD_Y}")
             time.sleep(DELAY_MENU_LOAD)
             continue
 
@@ -1981,7 +2001,7 @@ def auto_upgrade_lab():
         print("   ⏭️ LAB_TEMPLATES kosong!")
         if ENABLE_FALLBACK_TO_SUGGESTED:
             print("   📋 Buka Lab dulu, lalu fallback ke suggested upgrades...")
-            device.shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
+            safe_shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
             time.sleep(DELAY_MENU_LOAD)
             s_up, s_limited = auto_upgrade_suggested_fallback(context="lab")
             upgraded += s_up
@@ -1991,7 +2011,7 @@ def auto_upgrade_lab():
         logger.info(f"Lab: {upgraded} up (fallback)")
         return upgraded, resource_limited
 
-    device.shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
+    safe_shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
     time.sleep(DELAY_MENU_LOAD)
 
     # Cek lab busy - SATU SCREENSHOT
@@ -2030,7 +2050,7 @@ def auto_upgrade_lab():
             tap(CLOSE_X, CLOSE_Y)
             time.sleep(DELAY_AFTER_CLOSE)
             completed_labels.add(label)
-            device.shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
+            safe_shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
             time.sleep(DELAY_MENU_LOAD)
             continue
 
@@ -2048,7 +2068,7 @@ def auto_upgrade_lab():
             time.sleep(DELAY_AFTER_CLOSE)
             resource_limited = True
             skipped_resource.add(label)
-            device.shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
+            safe_shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
             time.sleep(DELAY_MENU_LOAD)
             continue
 
@@ -2070,7 +2090,7 @@ def auto_upgrade_lab():
         tap(CLOSE_X, CLOSE_Y)
         time.sleep(DELAY_AFTER_CLOSE)
         clear_popups_and_recover()
-        device.shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
+        safe_shell(f"input tap {LAB_ICON_X} {LAB_ICON_Y}")
         time.sleep(DELAY_MENU_LOAD)
 
         # Cek lab mulai research
@@ -2118,18 +2138,18 @@ def switch_next_account(target_scid_image):
                         return True
                     else:
                         print("⬇️ Scroll...")
-                        device.shell("input swipe 480 400 480 150 600")
+                        safe_shell("input swipe 480 400 480 150 600")
                         time.sleep(1.5)
 
                 print(f"❌ Akun tidak ditemukan!")
-                device.shell("input keyevent 4")
+                safe_shell("input keyevent 4")
                 return False
     except Exception as e:
         print(f"❌ ERROR switch akun: {e}")
         logger.error(f"Switch error: {e}")
         save_debug_screenshot("switch_error")
         for _ in range(3):
-            device.shell("input keyevent 4")
+            safe_shell("input keyevent 4")
             time.sleep(0.5)
 
     return False
@@ -2348,7 +2368,7 @@ def main_farming_loop():
                     else:
                         print("   ⏭️ Building upgrade: SKIP (mati)")
 
-                    device.shell(f"input tap {CLOSE_X} {CLOSE_Y}")
+                    safe_shell(f"input tap {CLOSE_X} {CLOSE_Y}")
                     time.sleep(DELAY_AFTER_CLOSE)
 
                     if ENABLE_UPGRADE_LAB:
@@ -2361,7 +2381,7 @@ def main_farming_loop():
                     else:
                         print("   ⏭️ Lab upgrade: SKIP (mati)")
 
-                    device.shell(f"input tap {CLOSE_X} {CLOSE_Y}")
+                    safe_shell(f"input tap {CLOSE_X} {CLOSE_Y}")
                     time.sleep(DELAY_AFTER_CLOSE)
                     clear_popups_and_recover()
 
